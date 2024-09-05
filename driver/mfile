@@ -1,0 +1,10 @@
+CFLAGS=--sysroot=$(SYSROOT) -g -Wall
+CC=$(CROSS_COMPILE)gcc
+
+all: blink
+
+blink: blink.c
+	$(CC) $(CFLAGS) blink.c -o blink
+
+clean:
+	rm blink

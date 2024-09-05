@@ -1,0 +1,172 @@
+#include <linux/module.h>
+#include <linux/fs.h>
+#include <linux/device.h>
+#include <linux/cdev.h>
+#include <linux/uaccess.h>
+#include <linux/interrupt.h>
+#include <linux/gpio/consumer.h>
+#include <linux/of.h>
+#include <linux/kthread.h>
+#include <linux/wait.h>
+#include <linux/delay.h>
+#include <linux/mutex.h>
+
+static dev_t tl_dev_nr;
+static struct cdev driver_object;
+static struct class *tl_class;
+static struct device *tl_dev;
+
+static struct gpio_desc *gpio_my;
+static struct task_struct *blink_thread;
+static unsigned int freqPanagou = 1;
+static wait_queue_head_t wq;
+static int thread_running = 1;
+
+static DEFINE_MUTEX(freq_lock);
+
+static int blink_function(void *data)
+{
+    while (!kthread_should_stop()) {
+        wait_event_interruptible_timeout(wq, !thread_running, HZ / (2 * freqPanagou));
+        if (thread_running) {
+            gpiod_set_value(gpio_my, 1);   // Set GPIO high
+            msleep(500 / freqPanagou);     // Wait for half the period
+            gpiod_set_value(gpio_my, 0);   // Set GPIO low
+            msleep(500 / freqPanagou);     // Wait for the other half
+        }
+    }
+    return 0;
+}
+
+static ssize_t device_write(struct file *instanz, const char __user *user, size_t count, loff_t *offset)
+{
+    unsigned long not_copied;
+    unsigned int new_freq;
+    
+    if (count != sizeof(new_freq))
+        return -EINVAL;
+
+    not_copied = copy_from_user(&new_freq, user, sizeof(new_freq));
+    
+    if (not_copied != 0)
+        return -EFAULT;
+
+    mutex_lock(&freq_lock);
+    freqPanagou = new_freq;
+    mutex_unlock(&freq_lock);
+
+    *offset += sizeof(new_freq) - not_copied;
+    return sizeof(new_freq) - not_copied;
+}
+
+static struct file_operations fops = {
+    .owner = THIS_MODULE,
+    .write = device_write,
+};
+
+static int config_gpios(void)
+{
+    struct device_node *nodeptr = tl_dev->of_node;
+
+    nodeptr = of_find_node_by_name(nodeptr, "led_onoff_an");
+    tl_dev->of_node = nodeptr;
+
+    gpio_my = gpiod_get(tl_dev, "my", GPIOD_OUT_LOW);
+    if (IS_ERR(gpio_my)) {
+        pr_err("gpiod_get failed for led_onoff_an\n");
+        return -EIO;
+    }
+
+    pr_info("led_onoff_an: GPIO reserved and configured\n");
+    return 0;
+}
+
+static int free_gpios(void)
+{
+    if (gpio_my)
+        gpiod_put(gpio_my);
+    return 0;
+}
+
+static int __init mod_init(void)
+{
+
+    // Register device number
+    if (alloc_chrdev_region(&tl_dev_nr, 0, 1, "led_onoff_an") < 0)
+        return -EIO;
+    
+    // Initialize cdev structure and register device
+    cdev_init(&driver_object, &fops);
+    driver_object.owner = THIS_MODULE;
+    
+    if (cdev_add(&driver_object, tl_dev_nr, 1))
+        goto free_device_number;
+    
+    // Create device class
+    tl_class = class_create("led_onoff_an");
+    if (IS_ERR(tl_class)) {
+        pr_err("led_onoff_an: no udev support\n");
+        goto free_cdev;
+    }
+    
+    // Create device
+    tl_dev = device_create(tl_class, NULL, tl_dev_nr, NULL, "%s", "led_onoff_an");
+    if (IS_ERR(tl_dev)) {
+        pr_err("led_onoff_an: device_create failed\n");
+        goto free_class;
+    }
+    
+    // Configure GPIOs using device tree
+    if (config_gpios()) {
+        pr_err("led_onoff_an: GPIO configuration failed\n");
+        goto free_device;
+    }
+    
+    // Initialize waitqueue
+    init_waitqueue_head(&wq);
+    
+    // Create blink thread
+    blink_thread = kthread_run(blink_function, NULL, "blink_thread");
+    if (IS_ERR(blink_thread)) {
+        pr_err("led_onoff_an: thread creation failed\n");
+        goto free_gpios;
+    }
+
+    pr_info("led_onoff_an: driver loaded\n");
+    return 0;
+
+free_gpios:
+    free_gpios();
+free_device:
+    device_destroy(tl_class, tl_dev_nr);
+free_class:
+    class_destroy(tl_class);
+free_cdev:
+    kobject_put(&driver_object.kobj);
+free_device_number:
+    unregister_chrdev_region(tl_dev_nr, 1);
+    return -EIO;
+}
+
+static void __exit mod_exit(void)
+{
+    thread_running = 0;
+    if (blink_thread)
+        kthread_stop(blink_thread);
+
+    gpiod_set_value(gpio_my, 0);
+    free_gpios();
+    device_destroy(tl_class, tl_dev_nr);
+    class_destroy(tl_class);
+    cdev_del(&driver_object);
+    unregister_chrdev_region(tl_dev_nr, 1);
+
+    pr_info("led_onoff_an: driver unloaded\n");
+}
+
+module_init(mod_init);
+module_exit(mod_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Panagou");
+MODULE_DESCRIPTION("LED Blink Driver using Device Tree");

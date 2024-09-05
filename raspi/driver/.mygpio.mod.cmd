@@ -1,0 +1,1 @@
+savedcmd_/home/nemdos/Hausarbeit/embedded/raspi/driver/mygpio.mod := printf '%s\n'   mygpio.o | awk '!x[$$0]++ { print("/home/nemdos/Hausarbeit/embedded/raspi/driver/"$$0) }' > /home/nemdos/Hausarbeit/embedded/raspi/driver/mygpio.mod
