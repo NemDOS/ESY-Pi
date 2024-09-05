@@ -19,7 +19,7 @@ static struct device *tl_dev;
 
 static struct gpio_desc *gpio_my;
 static struct task_struct *blinker_thread;  // Kernel-Thread für das Blinken
-static int freqPanagou = 1;  // Initiale Blinkfrequenz (in Hz)
+static int freqPanagou = 0;  // Initiale Blinkfrequenz (in Hz)
 static DECLARE_WAIT_QUEUE_HEAD(wait_queue);  // Warteschlange
 static DEFINE_MUTEX(freq_lock);  // Mutex für den Zugriff auf freqPanagou
 
@@ -28,6 +28,8 @@ static int blinker_function(void *data) {
     while (!kthread_should_stop()) {
         int ret;
         int period_ms;
+
+	if(freqPanagou == 0) continue;
 
         mutex_lock(&freq_lock);  // Zugriff auf freqPanagou schützen
         period_ms = 1000 / freqPanagou;  // Periode in ms berechnen
