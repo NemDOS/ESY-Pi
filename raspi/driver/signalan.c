@@ -19,7 +19,7 @@ static struct device *tl_dev;
 
 static struct gpio_desc *gpio_my;
 static struct task_struct *blinker_thread;  // Kernel-Thread für das Blinken
-static int freqPanagou = 0;  // Initiale Blinkfrequenz (in Hz)
+static int freqPanagou = 1;  // Initiale Blinkfrequenz (in Hz)
 static DECLARE_WAIT_QUEUE_HEAD(wait_queue);  // Warteschlange
 static DEFINE_MUTEX(freq_lock);  // Mutex für den Zugriff auf freqPanagou
 
@@ -29,28 +29,25 @@ static int blinker_function(void *data) {
         int ret;
         int period_ms;
 
-	if(freqPanagou == 0) continue;
-
         mutex_lock(&freq_lock);  // Zugriff auf freqPanagou schützen
-        period_ms = 1000 / freqPanagou;  // Periode in ms berechnen
+        if(freqPanagou == 0) {
+		printk("frequency cannot be 0!\n");
+		continue;
+	}
+	period_ms = 1000 / freqPanagou;  // Periode in ms berechnen
         mutex_unlock(&freq_lock);
 
-        // LED einschalten
         gpiod_set_value(gpio_my, 1);
 
-        // Warten für die halbe Periode
         ret = wait_event_interruptible_timeout(wait_queue, 
                                                 kthread_should_stop(),
                                                 msecs_to_jiffies(period_ms / 2));
 
-        // Überprüfen, ob der Thread gestoppt wurde
         if (ret) 
             break;
 
-        // LED ausschalten
         gpiod_set_value(gpio_my, 0);
 
-        // Warten für die andere Hälfte der Periode
         ret = wait_event_interruptible_timeout(wait_queue, 
                                                 kthread_should_stop(),
                                                 msecs_to_jiffies(period_ms / 2));
@@ -105,9 +102,35 @@ static ssize_t device_write(struct file *instanz, const char __user *user,
     return to_copy - not_copied;
 }
 
+static ssize_t device_read(struct file *instanz, char __user *user,
+                           size_t count, loff_t *offset) {
+    int value;
+    char buffer[16];
+    ssize_t len;
+
+    if (*offset > 0)
+        return 0;
+
+    mutex_lock(&freq_lock);
+    value = freqPanagou;
+    mutex_unlock(&freq_lock);
+
+    len = snprintf(buffer, sizeof(buffer), "%d\n", value);
+
+    if (count < len)
+        return -EINVAL;
+
+    if (copy_to_user(user, buffer, len))
+        return -EFAULT;
+
+    *offset = len;
+    return len;
+}
+
 static struct file_operations fops = {
     .owner = THIS_MODULE,
     .write = device_write,
+    .read = device_read,
 };
 
 static int __init mod_init(void) {

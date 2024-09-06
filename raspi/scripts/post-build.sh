@@ -19,8 +19,14 @@ install ${TARGET_DIR}/../../../target/sysctl.conf ${TARGET_DIR}/etc/
 
 echo "copying modules ..."
 cp -r ../target/lib/modules/6.11.0-rc6-v7l+/ ${TARGET_DIR}/lib/modules/
-# MARK C: Zeit setzen 
-# ntpd -g wont work not on network
-# MARK D: SD-Karte einhaengen 
-# mount -a
-# MARK F: Firewall 
+
+echo "copying blinking-led-thingy ..."
+cp ../driver/signalan.ko ${TARGET_DIR}/lib/modules/
+install ${TARGET_DIR}/../../../target/S70signalan ${TARGET_DIR}/etc/init.d/
+
+echo "mosquitto bzzzzzzz ..." 
+install ${TARGET_DIR}/../../../target/S85mosquitto_pub ${TARGET_DIR}/etc/init.d/
+install ${TARGET_DIR}/../../../target/S90mosquitto_sub ${TARGET_DIR}/etc/init.d/
+install ${TARGET_DIR}/../../../target/mosq_pub.sh ${TARGET_DIR}/etc/init.d/
+install ${TARGET_DIR}/../../../target/sw_led_an.sh ${TARGET_DIR}/etc/
+install ${TARGET_DIR}/../../../target/mosquitto.conf ${TARGET_DIR}/etc/mosquitto/

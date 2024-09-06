@@ -1,0 +1,3 @@
+#!/bin/sh
+
+sh /etc/init.d/mosq_pub.sh &
