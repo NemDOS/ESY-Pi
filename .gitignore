@@ -1,2 +1,7 @@
-raspi/linux/
-raspi/buildroot/
+linux/
+buildroot/
+
+!driver/export.sh
+!driver/Makefile
+!driver/original
+!driver/signalan.c

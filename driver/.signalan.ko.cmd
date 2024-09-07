@@ -1,1 +1,0 @@
-savedcmd_/home/nemdos/Hausarbeit/embedded/raspi/driver/signalan.ko := arm-linux-ld -r -EL -z noexecstack --no-warn-rwx-segments --build-id=sha1  -T scripts/module.lds -o /home/nemdos/Hausarbeit/embedded/raspi/driver/signalan.ko /home/nemdos/Hausarbeit/embedded/raspi/driver/signalan.o /home/nemdos/Hausarbeit/embedded/raspi/driver/signalan.mod.o

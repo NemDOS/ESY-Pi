@@ -1,1 +1,0 @@
-savedcmd_/home/nemdos/Hausarbeit/embedded/raspi/driver/signalan.mod := printf '%s\n'   signalan.o | awk '!x[$$0]++ { print("/home/nemdos/Hausarbeit/embedded/raspi/driver/"$$0) }' > /home/nemdos/Hausarbeit/embedded/raspi/driver/signalan.mod

@@ -1,1 +1,0 @@
-savedcmd_/home/nemdos/Hausarbeit/embedded/raspi/driver/Module.symvers :=  scripts/mod/modpost -M -m -a      -o /home/nemdos/Hausarbeit/embedded/raspi/driver/Module.symvers -T /home/nemdos/Hausarbeit/embedded/raspi/driver/modules.order -i Module.symvers -e 
