@@ -1,1 +1,0 @@
-savedcmd_/home/nemdos/Hausarbeit/embedded/raspi/driver/modules.order := {   echo /home/nemdos/Hausarbeit/embedded/raspi/driver/mygpio.o; :; } > /home/nemdos/Hausarbeit/embedded/raspi/driver/modules.order
